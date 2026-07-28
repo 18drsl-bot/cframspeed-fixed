@@ -1,0 +1,36 @@
+local P=game:GetService("Players").LocalPlayer
+local C=P.Character or P.CharacterAdded:Wait()
+local H=C:WaitForChild("HumanoidRootPart")
+local R=game:GetService("RunService")
+local U=game:GetService("UserInputService")
+_G.CFrameSpeed=_G.CFrameSpeed or .09
+local G=P.PlayerGui:FindFirstChild("SpeedControlGui")or Instance.new("ScreenGui",P.PlayerGui)
+G.Name="SpeedControlGui";G.ResetOnSpawn=false
+local F=G:FindFirstChild("Container")or Instance.new("Frame",G)
+F.Name="Container";F.Size=UDim2.new(0,220,0,70);F.Position=UDim2.new(0,12,0,12)
+F.BackgroundColor3=Color3.fromRGB(20,20,20);F.BackgroundTransparency=.25;F.BorderSizePixel=0
+local function mk(t,p,n,x)local o=p:FindFirstChild(n)or Instance.new(t,p)o.Name=n for k,v in pairs(x)do o[k]=v end return o end
+local T=mk("TextLabel",F,"Title",{Size=UDim2.new(1,-12,0,20),Position=UDim2.new(0,6,0,6),BackgroundTransparency=1,TextColor3=Color3.new(1,1,1),Font=Enum.Font.SourceSansBold,TextSize=14,Text="CFrame Speed",TextXAlignment=Enum.TextXAlignment.Left})
+local V=mk("TextLabel",F,"ValueLabel",{Size=UDim2.new(1,-12,0,18),Position=UDim2.new(0,6,0,26),BackgroundTransparency=1,TextColor3=Color3.fromRGB(200,200,200),Font=Enum.Font.SourceSans,TextSize=14,TextXAlignment=Enum.TextXAlignment.Left})
+local B=mk("TextBox",F,"SpeedBox",{Size=UDim2.new(0,80,0,24),Position=UDim2.new(1,-86,0,22),BackgroundTransparency=.9,TextColor3=Color3.new(0,0,0),Font=Enum.Font.SourceSans,TextSize=14,PlaceholderText="speed",ClearTextOnFocus=false})
+local function up()V.Text="Current: ".._G.CFrameSpeed if not B:IsFocused()then B.Text=tostring(_G.CFrameSpeed)end end
+up()
+B.FocusLost:Connect(function()local n=tonumber(B.Text)if n then _G.CFrameSpeed=math.clamp(n,0,9999999999999999)end up()end)
+local K={W=false,A=false,S=false,D=false}
+U.InputBegan:Connect(function(i,g)if not g and K[i.KeyCode.Name]~=nil then K[i.KeyCode.Name]=true end end)
+U.InputEnded:Connect(function(i)if K[i.KeyCode.Name]~=nil then K[i.KeyCode.Name]=false end end)
+P.CharacterAdded:Connect(function(c)C=c H=c:WaitForChild("HumanoidRootPart")for k in pairs(K)do K[k]=false end up()end)
+R.RenderStepped:Connect(function()
+if not H or not H.Parent then C=P.Character or P.CharacterAdded:Wait()H=C:WaitForChild("HumanoidRootPart")end
+local cam=workspace.CurrentCamera
+local f=Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z).Unit
+local r=Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z).Unit
+local m=Vector3.zero
+if K.W then m+=f end;if K.S then m-=f end;if K.A then m-=r end;if K.D then m+=r end
+if m.Magnitude>0 then H.CFrame+=m.Unit*_G.CFrameSpeed*.1 end
+end)
+do local d,s,p
+T.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then d=true s=i.Position p=F.Position end end)
+U.InputChanged:Connect(function(i)if d and i.UserInputType==Enum.UserInputType.MouseMovement then local o=i.Position-s F.Position=UDim2.new(0,p.X.Offset+o.X,0,p.Y.Offset+o.Y)end end)
+U.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then d=false end end)
+end
