@@ -1,63 +1,56 @@
 
 --// PURPLE CFRAME SPEED UI
---// MAIN CORE - RE-EXECUTION SAFE
+--// TOP BAR DRAG ONLY
+--// SLIDER + RESET + MINIMIZE
+--// RE-EXECUTION SAFE
 --// LocalScript
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
---// UNLOAD PREVIOUS EXECUTION
+--// RE-EXECUTION CLEANUP
 local env = getgenv and getgenv() or _G
 local coreKey = "PurpleCFrameSpeedCore"
 
-if env[coreKey] then
-    local oldCore = env[coreKey]
-
-    if oldCore.Unload then
-        oldCore.Unload()
-    end
+if env[coreKey] and env[coreKey].Unload then
+    env[coreKey].Unload()
 end
 
---// CLEAN UP ANY OLD GUI
 local oldGui = playerGui:FindFirstChild("PurpleCFrameSpeed")
-
 if oldGui then
     oldGui:Destroy()
 end
 
---// MAIN CORE
+--// CORE
 local Core = {
     Speed = 1,
+    MinSpeed = 0,
+    MaxSpeed = 100,
     Connections = {},
     Running = true,
-    GUI = nil
+    GUI = nil,
+    Minimized = false
 }
 
 env[coreKey] = Core
 
---// CONNECTION MANAGER
 function Core.Connect(signal, callback)
     local connection = signal:Connect(callback)
     table.insert(Core.Connections, connection)
     return connection
 end
 
---// UNLOAD FUNCTION
 function Core.Unload()
-    if not Core.Running then
-        return
-    end
+    if not Core.Running then return end
 
     Core.Running = false
 
     for _, connection in ipairs(Core.Connections) do
-        if connection.Connected then
-            connection:Disconnect()
-        end
+        connection:Disconnect()
     end
 
     table.clear(Core.Connections)
@@ -72,83 +65,348 @@ function Core.Unload()
     end
 end
 
---// CREATE GUI
+--// COLORS
+local colors = {
+    Background = Color3.fromRGB(35, 20, 55),
+    Panel = Color3.fromRGB(65, 35, 95),
+    Accent = Color3.fromRGB(170, 75, 255),
+    Text = Color3.fromRGB(220, 170, 255),
+    White = Color3.fromRGB(255, 255, 255)
+}
+
+local function addCorner(object, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = object
+end
+
+local function makeButton(text, size, position, parent)
+    local button = Instance.new("TextButton")
+    button.Size = size
+    button.Position = position
+    button.BackgroundColor3 = colors.Panel
+    button.BorderSizePixel = 0
+    button.Text = text
+    button.TextColor3 = colors.White
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 18
+    button.Parent = parent
+
+    addCorner(button, 8)
+    return button
+end
+
+--// GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "PurpleCFrameSpeed"
 gui.ResetOnSpawn = false
 gui.Parent = playerGui
-
 Core.GUI = gui
 
 --// MAIN FRAME
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 280, 0, 150)
-frame.Position = UDim2.new(0.5, -140, 0.5, -75)
-frame.BackgroundColor3 = Color3.fromRGB(35, 20, 55)
+frame.Size = UDim2.fromOffset(300, 245)
+frame.Position = UDim2.new(0.5, -150, 0.5, -122)
+frame.BackgroundColor3 = colors.Background
 frame.BorderSizePixel = 0
 frame.Active = true
-frame.Draggable = true
-frame.Parent = gui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = frame
+-- IMPORTANT: DISABLE DEFAULT DRAGGING
+frame.Draggable = false
+
+frame.Parent = gui
+addCorner(frame, 12)
 
 local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(170, 75, 255)
+stroke.Color = colors.Accent
 stroke.Thickness = 2
 stroke.Parent = frame
 
+--// TOP DRAG BAR
+local topBar = Instance.new("Frame")
+topBar.Name = "DragBar"
+topBar.Size = UDim2.new(1, -45, 0, 42)
+topBar.Position = UDim2.fromOffset(0, 0)
+topBar.BackgroundTransparency = 1
+topBar.Active = true
+topBar.Parent = frame
+
 --// TITLE
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 45)
+title.Size = UDim2.new(1, 0, 1, 0)
 title.BackgroundTransparency = 1
 title.Text = "CFRAME SPEED"
-title.TextColor3 = Color3.fromRGB(200, 130, 255)
+title.TextColor3 = colors.Text
 title.Font = Enum.Font.GothamBold
-title.TextSize = 20
-title.Parent = frame
+title.TextSize = 19
+title.Active = false
+title.Parent = topBar
 
---// SPEED INPUT
+--// MINIMIZE BUTTON
+local minimize = makeButton(
+    "-",
+    UDim2.fromOffset(32, 30),
+    UDim2.new(1, -40, 0, 6),
+    frame
+)
+
+--// CONTENT
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, 0, 1, -45)
+content.Position = UDim2.fromOffset(0, 45)
+content.BackgroundTransparency = 1
+content.Parent = frame
+
+--// SPEED TEXTBOX
 local speedBox = Instance.new("TextBox")
-speedBox.Size = UDim2.new(0, 220, 0, 42)
-speedBox.Position = UDim2.new(0.5, -110, 0, 65)
-speedBox.BackgroundColor3 = Color3.fromRGB(65, 35, 95)
-speedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-speedBox.PlaceholderText = "Enter CFrame Speed"
+speedBox.Size = UDim2.fromOffset(220, 38)
+speedBox.Position = UDim2.new(0.5, -110, 0, 5)
+speedBox.BackgroundColor3 = colors.Panel
+speedBox.TextColor3 = colors.White
+speedBox.PlaceholderText = "Enter Speed"
 speedBox.Text = "1"
 speedBox.Font = Enum.Font.GothamBold
 speedBox.TextSize = 17
 speedBox.ClearTextOnFocus = false
-speedBox.Parent = frame
+speedBox.Parent = content
 
-local boxCorner = Instance.new("UICorner")
-boxCorner.CornerRadius = UDim.new(0, 8)
-boxCorner.Parent = speedBox
+addCorner(speedBox, 8)
+
+--// SLIDER
+local slider = Instance.new("Frame")
+slider.Size = UDim2.fromOffset(220, 10)
+slider.Position = UDim2.new(0.5, -110, 0, 68)
+slider.BackgroundColor3 = colors.Panel
+slider.BorderSizePixel = 0
+slider.Active = true
+slider.Parent = content
+
+addCorner(slider, 6)
+
+--// SLIDER FILL
+local sliderFill = Instance.new("Frame")
+sliderFill.Size = UDim2.fromScale(0.01, 1)
+sliderFill.BackgroundColor3 = colors.Accent
+sliderFill.BorderSizePixel = 0
+sliderFill.Parent = slider
+
+addCorner(sliderFill, 6)
+
+--// SLIDER KNOB
+local knob = Instance.new("TextButton")
+knob.Size = UDim2.fromOffset(20, 20)
+knob.AnchorPoint = Vector2.new(0.5, 0.5)
+knob.Position = UDim2.fromScale(0.01, 0.5)
+knob.BackgroundColor3 = colors.White
+knob.Text = ""
+knob.AutoButtonColor = false
+knob.Parent = slider
+
+addCorner(knob, 10)
+
+--// MINUS BUTTON
+local minus = makeButton(
+    "-",
+    UDim2.fromOffset(55, 35),
+    UDim2.fromOffset(30, 100),
+    content
+)
+
+--// PLUS BUTTON
+local plus = makeButton(
+    "+",
+    UDim2.fromOffset(55, 35),
+    UDim2.new(1, -85, 0, 100),
+    content
+)
 
 --// SPEED INFO
 local info = Instance.new("TextLabel")
-info.Size = UDim2.new(1, 0, 0, 25)
-info.Position = UDim2.new(0, 0, 0, 115)
+info.Size = UDim2.fromOffset(120, 35)
+info.Position = UDim2.new(0.5, -60, 0, 100)
 info.BackgroundTransparency = 1
-info.Text = "Current Speed: 1"
-info.TextColor3 = Color3.fromRGB(180, 130, 255)
-info.Font = Enum.Font.Gotham
-info.TextSize = 13
-info.Parent = frame
+info.Text = "Speed: 1"
+info.TextColor3 = colors.Text
+info.Font = Enum.Font.GothamBold
+info.TextSize = 15
+info.Parent = content
 
---// UPDATE SPEED
+--// RESET BUTTON
+local reset = makeButton(
+    "RESET SPEED",
+    UDim2.fromOffset(220, 35),
+    UDim2.new(0.5, -110, 0, 150),
+    content
+)
+
+--// SPEED FUNCTION
+local function setSpeed(value)
+    value = tonumber(value)
+    if not value then return end
+
+    value = math.clamp(
+        math.round(value),
+        Core.MinSpeed,
+        Core.MaxSpeed
+    )
+
+    Core.Speed = value
+
+    speedBox.Text = tostring(value)
+    info.Text = "Speed: " .. tostring(value)
+
+    local percent = value / Core.MaxSpeed
+
+    sliderFill.Size = UDim2.fromScale(percent, 1)
+    knob.Position = UDim2.fromScale(percent, 0.5)
+end
+
+--// TEXTBOX
 Core.Connect(speedBox.FocusLost, function()
-    if not Core.Running then return end
+    setSpeed(tonumber(speedBox.Text) or Core.Speed)
+end)
 
-    local newSpeed = tonumber(speedBox.Text)
+--// BUTTONS
+Core.Connect(minus.MouseButton1Click, function()
+    setSpeed(Core.Speed - 1)
+end)
 
-    if newSpeed and newSpeed >= 0 and newSpeed <= 100 then
-        Core.Speed = newSpeed
+Core.Connect(plus.MouseButton1Click, function()
+    setSpeed(Core.Speed + 1)
+end)
+
+Core.Connect(reset.MouseButton1Click, function()
+    setSpeed(1)
+end)
+
+--// SLIDER DRAGGING
+local sliderDragging = false
+local sliderTouch = nil
+
+local function updateSlider(input)
+    local x = input.Position.X
+    local startX = slider.AbsolutePosition.X
+    local width = slider.AbsoluteSize.X
+
+    if width <= 0 then return end
+
+    local percent = math.clamp(
+        (x - startX) / width,
+        0,
+        1
+    )
+
+    setSpeed(percent * Core.MaxSpeed)
+end
+
+local function startSlider(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        sliderDragging = true
+        sliderTouch = nil
+        updateSlider(input)
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = true
+        sliderTouch = input
+        updateSlider(input)
+    end
+end
+
+Core.Connect(knob.InputBegan, startSlider)
+Core.Connect(slider.InputBegan, startSlider)
+
+Core.Connect(UIS.InputChanged, function(input)
+    if not sliderDragging then return end
+
+    if sliderTouch then
+        if input == sliderTouch then
+            updateSlider(input)
+        end
+    elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSlider(input)
+    end
+end)
+
+Core.Connect(UIS.InputEnded, function(input)
+    if sliderTouch then
+        if input == sliderTouch then
+            sliderDragging = false
+            sliderTouch = nil
+        end
+    elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+        sliderDragging = false
+    end
+end)
+
+--// TOP BAR ONLY GUI DRAGGING
+local guiDragging = false
+local guiTouch = nil
+local dragStart
+local startPosition
+
+Core.Connect(topBar.InputBegan, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        guiDragging = true
+        dragStart = input.Position
+        startPosition = frame.Position
+
+        if input.UserInputType == Enum.UserInputType.Touch then
+            guiTouch = input
+        else
+            guiTouch = nil
+        end
+    end
+end)
+
+Core.Connect(UIS.InputChanged, function(input)
+    if not guiDragging then return end
+
+    local validInput = false
+
+    if guiTouch then
+        validInput = input == guiTouch
+    else
+        validInput =
+            input.UserInputType == Enum.UserInputType.MouseMovement
     end
 
-    speedBox.Text = tostring(Core.Speed)
-    info.Text = "Current Speed: " .. tostring(Core.Speed)
+    if validInput then
+        local delta = input.Position - dragStart
+
+        frame.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+Core.Connect(UIS.InputEnded, function(input)
+    if guiTouch then
+        if input == guiTouch then
+            guiDragging = false
+            guiTouch = nil
+        end
+    elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+        guiDragging = false
+    end
+end)
+
+--// MINIMIZE / RESTORE
+Core.Connect(minimize.MouseButton1Click, function()
+    Core.Minimized = not Core.Minimized
+
+    if Core.Minimized then
+        content.Visible = false
+        frame.Size = UDim2.fromOffset(300, 42)
+        minimize.Text = "+"
+    else
+        frame.Size = UDim2.fromOffset(300, 245)
+        content.Visible = true
+        minimize.Text = "-"
+    end
 end)
 
 --// CFRAME SPEED MOVEMENT
@@ -158,8 +416,11 @@ Core.Connect(RunService.Heartbeat, function(dt)
     local character = player.Character
     if not character then return end
 
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local root = character:FindFirstChild("HumanoidRootPart")
+    local humanoid =
+        character:FindFirstChildOfClass("Humanoid")
+
+    local root =
+        character:FindFirstChild("HumanoidRootPart")
 
     if humanoid and root and humanoid.Health > 0 then
         local direction = humanoid.MoveDirection
@@ -170,3 +431,6 @@ Core.Connect(RunService.Heartbeat, function(dt)
         end
     end
 end)
+
+--// INITIAL SPEED
+setSpeed(1)
