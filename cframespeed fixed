@@ -13,8 +13,28 @@ local key = "PurpleCFrameSpeedCore"
 if env[key] and type(env[key].Unload) == "function" then
     env[key].Unload()
 end
-local old = playerGui:FindFirstChild("PurpleCFrameSpeed")
-if old then old:Destroy() end
+-- Put the UI in the main core (CoreGui) so it draws over Roblox's own UI.
+-- Uses gethui() when the environment has it, then CoreGui, then PlayerGui as a last resort.
+local function getUIParent()
+    if type(gethui) == "function" then
+        local ok, hui = pcall(gethui)
+        if ok and typeof(hui) == "Instance" then return hui end
+    end
+    local ok, coreGui = pcall(function() return game:GetService("CoreGui") end)
+    if ok and coreGui then
+        local canUse = pcall(function() return coreGui:GetChildren() end)
+        if canUse then return coreGui end
+    end
+    return playerGui
+end
+local uiParent = getUIParent()
+
+for _, place in ipairs({uiParent, playerGui}) do
+    pcall(function()
+        local old = place:FindFirstChild("PurpleCFrameSpeed")
+        if old then old:Destroy() end
+    end)
+end
 
 local core = {Speed = 1, Connections = {}, Running = true}
 env[key] = core
@@ -67,23 +87,29 @@ end
 local gui = Instance.new("ScreenGui")
 gui.Name = "PurpleCFrameSpeed"
 gui.ResetOnSpawn = false
-gui.Parent = playerGui
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder = 999999
+if not pcall(function() gui.Parent = uiParent end) then
+    gui.Parent = playerGui
+end
 core.GUI = gui
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(300, 268)
-frame.Position = UDim2.new(0.5, -150, 0.5, -134)
-frame.BackgroundColor3 = colors.bg
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = false
-frame.Parent = gui
-round(frame, 12)
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.fromOffset(300, 268)
+main.Position = UDim2.new(0.5, -150, 0.5, -134)
+main.BackgroundColor3 = colors.bg
+main.BorderSizePixel = 0
+main.Active = true
+main.Draggable = false
+main.Parent = gui
+round(main, 12)
 
 local stroke = Instance.new("UIStroke")
 stroke.Color = colors.accent
 stroke.Thickness = 2
-stroke.Parent = frame
+stroke.Parent = main
 
 -- Only this title bar can move the GUI.
 local topBar = Instance.new("Frame")
@@ -91,7 +117,7 @@ topBar.Name = "DragBar"
 topBar.Size = UDim2.new(1, -46, 0, 42)
 topBar.BackgroundTransparency = 1
 topBar.Active = true
-topBar.Parent = frame
+topBar.Parent = main
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.fromScale(1, 1)
@@ -102,13 +128,13 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 19
 title.Parent = topBar
 
-local minimize = button("−", UDim2.new(1, -40, 0, 6), UDim2.fromOffset(32, 30), frame)
+local minimize = button("−", UDim2.new(1, -40, 0, 6), UDim2.fromOffset(32, 30), main)
 
 local content = Instance.new("Frame")
 content.Position = UDim2.fromOffset(0, 45)
 content.Size = UDim2.new(1, 0, 1, -45)
 content.BackgroundTransparency = 1
-content.Parent = frame
+content.Parent = main
 
 local speedBox = Instance.new("TextBox")
 speedBox.Size = UDim2.fromOffset(220, 36)
@@ -268,7 +294,7 @@ end)
 local guiMouse = false
 local guiTouch = nil
 local dragStart
-local frameStart
+local mainStart
 connect(topBar.InputBegan, function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         guiMouse = true
@@ -278,15 +304,15 @@ connect(topBar.InputBegan, function(input)
         return
     end
     dragStart = input.Position
-    frameStart = frame.Position
+    mainStart = main.Position
 end)
 connect(UIS.InputChanged, function(input)
     if not ((guiMouse and input.UserInputType == Enum.UserInputType.MouseMovement)
         or (guiTouch and input == guiTouch)) then return end
     local delta = input.Position - dragStart
-    frame.Position = UDim2.new(
-        frameStart.X.Scale, frameStart.X.Offset + delta.X,
-        frameStart.Y.Scale, frameStart.Y.Offset + delta.Y
+    main.Position = UDim2.new(
+        mainStart.X.Scale, mainStart.X.Offset + delta.X,
+        mainStart.Y.Scale, mainStart.Y.Offset + delta.Y
     )
 end)
 connect(UIS.InputEnded, function(input)
@@ -298,7 +324,7 @@ local minimized = false
 connect(minimize.MouseButton1Click, function()
     minimized = not minimized
     content.Visible = not minimized
-    frame.Size = UDim2.fromOffset(300, minimized and 42 or 268)
+    main.Size = UDim2.fromOffset(300, minimized and 42 or 268)
     minimize.Text = minimized and "+" or "−"
 end)
 
