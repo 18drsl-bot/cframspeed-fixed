@@ -171,28 +171,17 @@ local minus = button("−", UDim2.fromOffset(30, 163), UDim2.fromOffset(55, 35),
 local reset = button("RESET", UDim2.fromOffset(92, 163), UDim2.fromOffset(116, 35), content)
 local plus = button("+", UDim2.fromOffset(215, 163), UDim2.fromOffset(55, 35), content)
 
--- Decimal support: speeds keep up to DECIMALS places (e.g. 1.23343).
-local DECIMALS = 5
-local function roundTo(v)
-    local m = 10 ^ DECIMALS
-    return math.round(v * m) / m
-end
-local function formatSpeed(v)
-    local s = string.format("%." .. DECIMALS .. "f", v)
-    s = s:gsub("0+$", ""):gsub("%.$", "") -- drop trailing zeros / dot
-    return s
-end
-
+-- No rounding: the exact number you type is used (e.g. 1.23343).
 local function setSpeed(value)
     if type(value) == "string" then
         value = value:gsub(",", ".") -- allow 1,5 as well as 1.5
     end
     value = tonumber(value)
     if not value or value ~= value then return end
-    value = math.clamp(roundTo(value), 0, 100)
+    value = math.clamp(value, 0, 100)
     core.Speed = value
-    speedBox.Text = formatSpeed(value)
-    info.Text = "Speed: " .. formatSpeed(value)
+    speedBox.Text = tostring(value)
+    info.Text = "Speed: " .. tostring(value)
     local fraction = value / 100
     fill.Size = UDim2.fromScale(fraction, 1)
     knob.Position = UDim2.fromScale(fraction, 0.5)
@@ -257,7 +246,7 @@ local function updateSlider(input)
     local width = track.AbsoluteSize.X
     if width <= 0 then return end
     local fraction = math.clamp((input.Position.X - track.AbsolutePosition.X) / width, 0, 1)
-    setSpeed(math.round(fraction * 100 * 10) / 10) -- slider snaps to 0.1
+    setSpeed(fraction * 100) -- no snapping
 end
 local function startSlider(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
