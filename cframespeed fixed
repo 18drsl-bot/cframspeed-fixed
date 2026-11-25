@@ -6,14 +6,31 @@ local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+
+-- Parent the GUI to CoreGui (main core). Falls back to gethui() / PlayerGui
+-- if CoreGui can't be written to in this environment.
+local function getGuiParent()
+    if type(gethui) == "function" then
+        local ok, hui = pcall(gethui)
+        if ok and hui then return hui end
+    end
+    local ok, coreGui = pcall(function() return game:GetService("CoreGui") end)
+    if ok and coreGui then
+        local test = Instance.new("Folder")
+        local canWrite = pcall(function() test.Parent = coreGui end)
+        test:Destroy()
+        if canWrite then return coreGui end
+    end
+    return player:WaitForChild("PlayerGui")
+end
+local guiParent = getGuiParent()
 local env = (type(getgenv) == "function" and getgenv()) or _G
 local key = "PurpleCFrameSpeedCore"
 
 if env[key] and type(env[key].Unload) == "function" then
     env[key].Unload()
 end
-local old = playerGui:FindFirstChild("PurpleCFrameSpeed")
+local old = guiParent:FindFirstChild("PurpleCFrameSpeed")
 if old then old:Destroy() end
 
 local core = {Speed = 1, Connections = {}, Running = true}
@@ -67,7 +84,10 @@ end
 local gui = Instance.new("ScreenGui")
 gui.Name = "PurpleCFrameSpeed"
 gui.ResetOnSpawn = false
-gui.Parent = playerGui
+gui.IgnoreGuiInset = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder = 999
+gui.Parent = guiParent
 core.GUI = gui
 
 local frame = Instance.new("Frame")
